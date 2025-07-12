@@ -6,55 +6,25 @@ class ProxmoxService {
   constructor() {
     this.host = process.env.PROXMOX_HOST;
     this.port = process.env.PROXMOX_PORT || 8006;
-    this.username = process.env.PROXMOX_USERNAME;
-    this.password = process.env.PROXMOX_PASSWORD;
+    this.token = process.env.PROXMOX_TOKEN;
+    this.secret = process.env.PROXMOX_SECRET;
     this.node = process.env.PROXMOX_NODE;
     this.baseURL = `https://${this.host}:${this.port}/api2/json`;
-    this.ticket = null;
-    this.csrfToken = null;
 
     // Ignorer les certificats SSL auto-signés (pour le développement)
     this.axiosInstance = axios.create({
       httpsAgent: new https.Agent({
         rejectUnauthorized: false
       }),
-      timeout: 30000
-    });
-  }
-
-  async authenticate() {
-    try {
-      const response = await this.axiosInstance.post(`${this.baseURL}/access/ticket`, {
-        username: this.username,
-        password: this.password
-      });
-
-      if (response.data && response.data.data) {
-        this.ticket = response.data.data.ticket;
-        this.csrfToken = response.data.data.CSRFPreventionToken;
-
-        // Configurer les headers par défaut
-        this.axiosInstance.defaults.headers.common['Cookie'] = `PVEAuthCookie=${this.ticket}`;
-        this.axiosInstance.defaults.headers.common['CSRFPreventionToken'] = this.csrfToken;
-
-        logger.info('Successfully authenticated with Proxmox');
-        return true;
+      timeout: 30000,
+      headers: {
+        'Authorization': `PVEAPIToken=${this.token}=${this.secret}`
       }
-
-      throw new Error('Invalid authentication response');
-    } catch (error) {
-      logger.error('Proxmox authentication failed:', error.message);
-      throw new Error(`Proxmox authentication failed: ${error.message}`);
-    }
+    });
   }
 
   async createContainer(config) {
     try {
-      // S'assurer d'être authentifié
-      if (!this.ticket) {
-        await this.authenticate();
-      }
-
       const containerConfig = {
         vmid: config.vmid || await this.getNextVMID(),
         ostemplate: config.ostemplate || process.env.CT_DEFAULT_OSTEMPLATE,
