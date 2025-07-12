@@ -59,14 +59,15 @@ class ProxmoxService {
         vmid: config.vmid || await this.getNextVMID(),
         ostemplate: config.ostemplate || process.env.CT_DEFAULT_OSTEMPLATE,
         hostname: config.hostname,
-        cores: config.cores || process.env.CT_DEFAULT_CORES || 2,
-        memory: config.memory || process.env.CT_DEFAULT_MEMORY || 2048,
+        cores: config.cores || process.env.CT_DEFAULT_CORES || 1,
+        memory: config.memory || process.env.CT_DEFAULT_MEMORY || 512,
         swap: config.swap || 512,
-        net0: config.network || 'name=eth0,bridge=vmbr0,ip=dhcp',
-        rootfs: `local-lvm:${config.disk || process.env.CT_DEFAULT_DISK || 8}`,
-        password: config.password || process.env.CT_DEFAULT_PASSWORD,
-        unprivileged: 1,
-        start: 1,
+        net0: config.net0 || 'name=eth0,bridge=vmbr0,ip=dhcp',
+        rootfs: config.rootfs || `local-lvm:${config.disk || process.env.CT_DEFAULT_DISK || 8}`,
+        storage: config.storage || 'local-lvm',
+        password: config.password || process.env.CT_DEFAULT_PASSWORD || 'password',
+        unprivileged: config.unprivileged !== undefined ? config.unprivileged : 1,
+        start: config.start !== undefined ? config.start : 1,
         ...config.additionalConfig
       };
 
@@ -243,6 +244,77 @@ class ProxmoxService {
     } catch (error) {
       logger.error(`Error getting container ${vmid} IP:`, error.message);
       return null;
+    }
+  }
+
+  /**
+   * Exemple de configuration complète pour créer un container
+   * Basé sur les paramètres montrés dans l'interface Proxmox
+   */
+  getExampleContainerConfig() {
+    return {
+      // Paramètres de base
+      vmid: 300,                    // ID du container
+      hostname: 'test-ct',          // Nom d'hôte
+      ostemplate: 'local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst', // Template OS
+
+      // Ressources
+      cores: 1,                     // Nombre de cœurs CPU
+      memory: 512,                  // RAM en MB
+      swap: 512,                    // Swap en MB
+
+      // Stockage
+      rootfs: 'local-lvm:8',        // Disque racine (storage:taille_en_GB)
+      storage: 'local-lvm',         // Stockage par défaut
+
+      // Réseau
+      net0: 'name=eth0,bridge=vmbr0,ip=dhcp', // Configuration réseau
+
+      // Sécurité
+      password: 'password',         // Mot de passe root
+      unprivileged: 1,              // Container non privilégié (recommandé)
+
+      // Autres options
+      start: 1                      // Démarrer automatiquement après création
+    };
+  }
+
+  /**
+   * Créer un container avec configuration personnalisée
+   * Utilise les mêmes paramètres que l'interface web Proxmox
+   */
+  async createContainerWithFullConfig(containerData) {
+    try {
+      const config = {
+        // Paramètres obligatoires
+        vmid: containerData.vmid,
+        hostname: containerData.hostname,
+        ostemplate: containerData.ostemplate,
+
+        // Ressources (avec valeurs par défaut)
+        cores: containerData.cores || 1,
+        memory: containerData.memory || 512,
+        swap: containerData.swap || 512,
+
+        // Stockage
+        rootfs: containerData.rootfs || `local-lvm:${containerData.disk || 8}`,
+        storage: containerData.storage || 'local-lvm',
+
+        // Réseau
+        net0: containerData.net0 || 'name=eth0,bridge=vmbr0,ip=dhcp',
+
+        // Sécurité
+        password: containerData.password || 'password',
+        unprivileged: containerData.unprivileged !== undefined ? containerData.unprivileged : 1,
+
+        // Options de démarrage
+        start: containerData.start !== undefined ? containerData.start : 1
+      };
+
+      return await this.createContainer(config);
+    } catch (error) {
+      logger.error('Failed to create container with full config:', error.message);
+      throw error;
     }
   }
 }
