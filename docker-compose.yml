@@ -1,0 +1,50 @@
+services:
+  cardinal:
+    build:
+      context: ./Cardinal
+      dockerfile: Dockerfile
+    container_name: cardinal-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # Proxmox Configuration
+      - PROXMOX_HOST=${PROXMOX_HOST}
+      - PROXMOX_PORT=${PROXMOX_PORT:-8006}
+      - PROXMOX_USERNAME=${PROXMOX_USERNAME}
+      - PROXMOX_PASSWORD=${PROXMOX_PASSWORD}
+      - PROXMOX_NODE=${PROXMOX_NODE}
+      # Container Defaults
+      - CT_DEFAULT_OSTEMPLATE=${CT_DEFAULT_OSTEMPLATE:-ubuntu-22.04-standard_22.04-1_amd64.tar.zst}
+      - CT_DEFAULT_CORES=${CT_DEFAULT_CORES:-2}
+      - CT_DEFAULT_MEMORY=${CT_DEFAULT_MEMORY:-2048}
+      - CT_DEFAULT_DISK=${CT_DEFAULT_DISK:-8}
+      - CT_DEFAULT_USERNAME=${CT_DEFAULT_USERNAME:-root}
+      - CT_DEFAULT_PASSWORD=${CT_DEFAULT_PASSWORD}
+      # Security
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      # Database
+      - DB_PATH=/app/data/cardinal.db
+    volumes:
+      - cardinal-data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - cardinal-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  cardinal-data:
+    driver: local
+
+networks:
+  cardinal-network:
+    driver: bridge
